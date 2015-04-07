@@ -21,6 +21,13 @@ using namespace std;
 #define ID_Iterative_Circle 502
 #define ID_Midpoint_Circle 503
 #define ID_DDA_Circle 504
+#define ID_Hermite 505
+#define ID_Bezier 506
+#define ID_Polar_ellipse 507
+#define ID_Cartesian_ellipse 508
+#define ID_Iterative_ellipse 509
+#define ID_Midpoint_ellipse 510
+
 class LineInfo
 {
 	public:
@@ -111,7 +118,18 @@ int R(int x , int y , int x1 , int y1)
 	return round( sqrt((pow(x-x1,2)-pow(y-y1,2)) ) );
 }
 
-
+//////////**********************************************************
+ void Drow4point(HDC hdc,int xc,int yc,int x,int y)
+      {
+     
+                     
+         SetPixel(hdc,xc+x,yc+y,RGB(255,0,150));              
+         SetPixel(hdc,xc+x,yc-y,RGB(255,0,150)); 
+         SetPixel(hdc,xc-x,yc+y,RGB(255,0,150)); 
+         SetPixel(hdc,xc-x,yc-y,RGB(255,0,150)); 
+                 
+     }
+/////////////***************************************************************
 
 
 
@@ -425,7 +443,7 @@ void drawlineBYSDDA(HDC hdc,int xs,int ys,int xe,int ye,COLORREF color)
 //*** bezier curve
 
 void bezier(HDC hdc, int x0, int y0, int x1, int y1, int x2,
- int y2, int x3 , int y3 , COLORREF color)
+int y2, int x3 , int y3 , COLORREF color)
 {
 	float x,y;
 	int B[4][4] =
@@ -462,17 +480,179 @@ void bezier(HDC hdc, int x0, int y0, int x1, int y1, int x2,
 	
 }
 //***************************************************************************************
+//hermite
+
+void Hermite(HDC hdc, int x0, int y0, int x1, int y1, int r0,
+ int r1, int s0 , int s1 , COLORREF color)
+{
+	float x,y;
+	int B[4][4] =
+	{
+		{ 1,0,0,0   },
+		{ 0,1,0 ,0  },
+		{ -3,-2,3,-1},
+		{ 2,1,-2,1  },
+		
+	};
+	
+	int vx[] = {x0, r0, x1 , r1}; 
+	int vy[] = {y0, s0, y1 , s1};
+	
+	int cx[4] , cy[4];
+	
+	B_V_multiplication(B,vx,cx);
+	B_V_multiplication(B,vy,cy);
+	
+	for(float t = 0 ; t < 1 ; t = t + (1.0/500))
+	{
+		x = 0 ; 
+		y = 0;
+		
+		for(int i = 0  ; i < 4 ; i++)
+		x += cx[i] * pow(t,i);
+		
+		for(int i = 0  ; i < 4 ; i++)
+		y += cy[i] * pow(t,i);
+		
+		SetPixel(hdc ,round(x) , round(y) , color);
+	}
+	
+	
+}
 
 
+/*****************************************************************************************/
+//////////////***********************************************
+//ellipse cartesian/*
+void Ellipse(HDC hdc,int xc,int yc,double A,double B)
+{
+     double x=0;
+     double y= B;
+      Drow4point( hdc, xc, yc, x, y);
+      int sq1=x*(B*B);
+      int sq2= y*(A*A);
+      while( sq1<=sq2)
+      {
+             x=x+1;
+             y=B*(sqrt(1-(x*x)/(A*A)));
+             Drow4point( hdc, xc, yc, x,round(y));
+       }
+       x=A;
+       y=0;
+       Drow4point( hdc, xc, yc, x, y);
+       while( sq1>sq2)
+       {
+        y=y+1;
+        x=A* (sqrt(1-(y*y)/(B*B)));
+            Drow4point( hdc, xc, yc, round(x),y);
+          
+       }
+
+
+}
+//==============================================================================
+///*********ellipse iteratuve
+void Ellipse_iterative(HDC hdc,int xc,int yc,double A,double B)
+{
+     double x=A;
+     double y=0;
+     double theta = 0;
+     	double deltaTheta = 1.0/A>B?A:B;
+     	double ct=cos(deltaTheta);
+     		double  st1=(A/B)*sin(deltaTheta);
+     		double  st2=(B/A)*sin(deltaTheta);
+     		Drow4point( hdc, xc, yc, x, y);
+     		while(x>0)
+             {
+             int x1=x*ct-y*st1;
+             int y1=x*st2+y*ct;
+              x=x1;
+                Drow4point( hdc, xc, yc, round(x),round(y));       
+                       
+             }
+     
+     }
+
+//==============================================================================
+//ellipse midpoint
+void Ellipse_midpoint(HDC hdc,int xc,int yc,double A,double B)
+{
+  double x=0;
+  double y=B;
+  double ASq=A*A;
+  double BSq=B*B;
+  int sq1=x*(B*B);
+  int sq2= y*(A*A);
+  double d=((4*BSq)-(4*ASq*B) +ASq) ;
+  Drow4point( hdc, xc, yc, x, y);
+     while(sq1<=sq2)
+     {
+        x=x+1;
+        if(d<0) 
+        {
+         d=d+4*BSq*(2*x+1);
+        }           
+        else
+        {
+          d=d+4*BSq*(2*x+1)-8* ASq*(y-1)  ;
+          y=y-1;
+        }       
+          Drow4point( hdc, xc, yc, x, y);   
+     }
+     
+     x=A;
+     y=0;
+     d=((4*ASq)-(4*BSq*A) +BSq) ;
+     Drow4point( hdc, xc, yc, x, y);
+      while(sq1>sq2)
+      {
+      y=y+1;
+      if(d<0){
+        d=d+4*ASq*(2*y+1);     
+        } 
+        else{
+               d=d+4*ASq*(2*y+1)-8* ASq*(x-1)  ;
+               x=x+1;
+             
+             }       
+             Drow4point( hdc, xc, yc, x, y);       
+      }
+     
+  
+ }
+//****************************************************************************
+//polar ellipse
+void Ellipse_ploar(HDC hdc,int xc,int yc,double A,double B)
+{
+     double x=A;
+     double y=0;
+     double theta = 0;
+     	double deltaTheta = 1.0/max(A,B);
+     Drow4point( hdc, xc, yc, x, y);
+     while(x>0)
+     {
+         theta=theta+ deltaTheta;
+         x=A*cos(theta);
+         y=B*sin(theta);
+              Drow4point( hdc, xc, yc, round(x), round(y));
+              x--;
+               
+      }
+ }
+
+//==============================================================================
 LRESULT WINAPI MyWindowProc(HWND hwnd,UINT m,WPARAM wp,LPARAM lp)
 {
 	
     HDC hdc;
+    
     hdc=GetDC(hwnd);
     static int x  = -1,y = -1,x1  = -1 , y1 = -1 , useMouse = 0 ;
 	static vector<LineInfo> data;
 	
-	bezier(hdc,500,300,300,450,200,150,100,400,RGB(20,0,150));
+	
+	
+	
     switch(m)
     {
     case WM_CREATE:
@@ -483,6 +663,10 @@ LRESULT WINAPI MyWindowProc(HWND hwnd,UINT m,WPARAM wp,LPARAM lp)
         HMENU subMenu2=CreateMenu();
         HMENU subMenu3=CreateMenu();
         HMENU subMenu4=CreateMenu();
+        HMENU subMenu5=CreateMenu();
+        HMENU subMenu6=CreateMenu();
+        HMENU subMenu7=CreateMenu();
+
         
 
 
@@ -510,7 +694,25 @@ LRESULT WINAPI MyWindowProc(HWND hwnd,UINT m,WPARAM wp,LPARAM lp)
         AppendMenu(subMenu4,MF_STRING,ID_Midpoint_Circle,"&MidPoint");
         AppendMenu(subMenu4,MF_STRING,ID_DDA_Circle,"&DDA");
         
-        ///////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////
+        InsertMenu(mainMenu,ID_Edit,MF_POPUP,(UINT_PTR)subMenu7,"ellipse");
+        AppendMenu(subMenu7,MF_STRING,ID_Polar_ellipse,"&polar");
+        AppendMenu(subMenu7,MF_STRING,ID_Cartesian_ellipse,"&cartesian");
+        AppendMenu(subMenu7,MF_STRING,ID_Iterative_ellipse,"&iterative");
+        AppendMenu(subMenu7,MF_STRING,ID_Midpoint_ellipse,"&MidPoint");
+        
+        ////////////////////////////////////////////////////////
+
+        InsertMenu(mainMenu,ID_Edit,MF_POPUP,(UINT_PTR) subMenu5,"Curves");
+        AppendMenu(subMenu5,MF_STRING,ID_Hermite,"&Hermite");
+        
+        
+        AppendMenu(subMenu5,MF_SEPARATOR,0,"");
+        AppendMenu(subMenu5,MF_STRING,ID_Bezier,"&Bezier");
+
+		
+		
+		///////////////////////////////////////////////////////////////////////
 
         InsertMenu(mainMenu,ID_Edit,MF_POPUP,(UINT_PTR)subMenu2,"Exit");
         AppendMenu(subMenu2,MF_STRING,ID_Exit,"&Exit");
@@ -525,6 +727,7 @@ LRESULT WINAPI MyWindowProc(HWND hwnd,UINT m,WPARAM wp,LPARAM lp)
 
 
         SetMenu(hwnd,mainMenu);
+        
         
         
 
@@ -563,6 +766,33 @@ LRESULT WINAPI MyWindowProc(HWND hwnd,UINT m,WPARAM wp,LPARAM lp)
             case ID_DDA_Circle:
             	useMouse = 9;
             	break;
+            case ID_Hermite :
+            	useMouse = 10;
+            	break;
+            
+            case ID_Bezier :
+            	useMouse = 11;
+            	break;
+            	
+            case ID_Polar_ellipse :
+            	useMouse = 12;
+            	break;
+            	
+            case ID_Cartesian_ellipse :
+            	useMouse = 13;
+            	break;
+            
+            case ID_Iterative_ellipse :
+            	useMouse = 14;
+            	break;
+            	
+            case ID_Midpoint_ellipse :
+            	useMouse = 15;
+            	break;
+
+
+
+
             case ID_Exit:
         	  CloseWindow(hwnd);
         	break;
@@ -657,6 +887,31 @@ LRESULT WINAPI MyWindowProc(HWND hwnd,UINT m,WPARAM wp,LPARAM lp)
                        DrowCircleByDDA(hdc, line.x1, line.y1,line.x2);
                      
                     }
+                    else if(line.algorithmNumber == ID_Hermite)
+                    {
+                    	LineInfo line1(line.x1,line.y1,line.x2,
+						line.y2,0,0);
+                    	
+                    	line.read(read);
+                    	Hermite(hdc,line1.x1,line1.y1,line1.x2,
+						line1.y2,line.x1,line.y1,line.x2,
+						line.y2,line.color);
+                    	
+                    	
+					}
+					else if(line.algorithmNumber == ID_Bezier)
+                    {
+                    	LineInfo line1(line.x1,line.y1,line.x2,
+						line.y2,0,0);
+                    	
+                    	line.read(read);
+                    	bezier(hdc,line1.x1,line1.y1,line1.x2,
+						line1.y2,line.x1,line.y1,line.x2,
+						line.y2,line.color);
+                    	
+                    	
+					}
+
 
 
                     
@@ -759,7 +1014,60 @@ LRESULT WINAPI MyWindowProc(HWND hwnd,UINT m,WPARAM wp,LPARAM lp)
             	LineInfo line(x, y, R(x,y,x1,y1),0,ID_DDA_Circle,RGB(255,0,150));
                 data.push_back(line);
 			}
+			else if(useMouse == 10)
+			{
+				int x2 , y2 ;
+				Hermite(hdc,x,y,x1,y1,300,300,300,300,RGB(20,0,150));
+				LineInfo line(x, y, x1,y1,ID_Hermite,RGB(20,0,150));
+                data.push_back(line);
+                LineInfo line1(300, 300, 300,300,ID_Hermite,RGB(20,0,150));
+                data.push_back(line1);
+				
+			}
+			else if(useMouse == 11)
+			{
+				int x2 , y2 , x3 , y3;
+				x2 = LOWORD(lp)+90;
+                y2 = HIWORD(lp)+280;
+                
+                x3 = LOWORD(lp)+250;
+                y3 = HIWORD(lp)+150;
+			    
+				bezier(hdc,x,y,x1,y1,x2,y2,x3,y3,RGB(20,0,150));
+				LineInfo line(x, y, x1,y1,ID_Bezier,RGB(20,0,150));
+                data.push_back(line);
+                LineInfo line1(x2,y2,x3,y3,ID_Bezier,RGB(20,0,150));
+                data.push_back(line1);
+			}
+			else if(useMouse == 12)
+			{
+			    Ellipse(hdc,100,100,x1,y1);
+				LineInfo line(100,100,500,500,ID_Polar_ellipse,RGB(20,0,150));
+				data.push_back(line);
+			}
+			else if(useMouse == 13)
+			{
+			    Ellipse(hdc,100,100,x1,y1);
+				LineInfo line(100,100,500,500,ID_Cartesian_ellipse,RGB(20,0,150));
+				data.push_back(line);
+			}
+			else if(useMouse == 14)
+			{
+			 
+			  Ellipse_iterative(hdc,x,y,x1,y1);
+			  LineInfo line(x, y, x1,y1,ID_Iterative_ellipse,RGB(20,0,150));
+			  data.push_back(line);
+			}
+			else if(useMouse == 15)
+			{
+			   Ellipse_midpoint(hdc,x,y,x1,y1);
+			   LineInfo line(x, y, x1,y1,ID_Midpoint_ellipse,RGB(20,0,150));
+			   data.push_back(line);
+			}
 			
+	
+	
+
 
 
 
@@ -786,6 +1094,7 @@ LRESULT WINAPI MyWindowProc(HWND hwnd,UINT m,WPARAM wp,LPARAM lp)
     }
     return 0;
 }
+
 
 
 
